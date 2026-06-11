@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Chat logs</h1>
+
+<div class="card">
+  <form method="get" action="/admin/logs" class="row">
+    <div>
+      <label for="widget_id">Filter by widget ID</label>
+      <input type="text" id="widget_id" name="widget_id" value="{{ widget_id }}"
+             placeholder="all widgets" />
+    </div>
+    <button type="submit">Filter</button>
+  </form>
+</div>
+
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>Time</th><th>Widget</th><th>Session</th><th>User</th><th>Assistant</th></tr>
+    </thead>
+    <tbody>
+      {% for l in logs %}
+      <tr>
+        <td class="muted">{{ l.timestamp.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td><span class="pill">{{ l.widget_id }}</span></td>
+        <td class="muted">{{ l.session_id }}</td>
+        <td>{{ l.user_message }}</td>
+        <td>{{ l.assistant_message }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">No messages logged yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

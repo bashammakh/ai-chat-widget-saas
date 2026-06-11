@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: chat
+      POSTGRES_PASSWORD: chat
+      POSTGRES_DB: chatdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chat -d chatdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    environment:
+      DATABASE_URL: postgresql+psycopg2://chat:chat@postgres:5432/chatdb
+      WEB_CONCURRENCY: "2"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8000"
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/widget.Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      # Enable for TLS once certs are mounted (see nginx/nginx.conf):
+      # - "443:443"
+    depends_on:
+      - backend
+    # Uncomment to mount Let's Encrypt certificates from the host:
+    # volumes:
+    #   - /etc/letsencrypt:/etc/letsencrypt:ro
+
+volumes:
+  pgdata:

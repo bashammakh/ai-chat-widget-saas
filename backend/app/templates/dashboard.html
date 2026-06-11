@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>Customers</h1>
+
+<div class="card">
+  <h2>Create customer</h2>
+  <form method="post" action="/admin/customers" class="row">
+    <div>
+      <label for="company_name">Company name</label>
+      <input type="text" id="company_name" name="company_name" required
+             placeholder="Acme Inc." />
+    </div>
+    <button type="submit">Create</button>
+  </form>
+</div>
+
+<div class="card">
+  <h2>All customers</h2>
+  {% if customers %}
+  <table>
+    <thead>
+      <tr><th>Company</th><th>Vector store</th><th>Created</th><th></th></tr>
+    </thead>
+    <tbody>
+      {% for c in customers %}
+      <tr>
+        <td>{{ c.company_name }}</td>
+        <td>
+          {% if c.vector_store_id %}<code>{{ c.vector_store_id }}</code>
+          {% else %}<span class="muted">not created</span>{% endif %}
+        </td>
+        <td class="muted">{{ c.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td><a class="btn" href="/admin/customers/{{ c.id }}">Manage</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">No customers yet. Create one above.</p>
+  {% endif %}
+</div>
+{% endblock %}

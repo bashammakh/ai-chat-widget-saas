@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell($py = \\(Get-Command python -ErrorAction SilentlyContinue\\); if \\($py\\) { python --version } else { \"no python\" }; $node = \\(Get-Command node -ErrorAction SilentlyContinue\\); if \\($node\\) { node --version } else { \"no node\" })",
+      "PowerShell(python -m compileall -q $base)",
+      "PowerShell($base=\"C:\\\\Users\\\\moham\\\\OneDrive\\\\سطح المكتب\\\\Claude\\\\backend\")",
+      "PowerShell(if \\($?\\) { \"PY OK\" })",
+      "PowerShell($base=\"C:\\\\Users\\\\moham\\\\OneDrive\\\\سطح المكتب\\\\Claude\"; Get-ChildItem -Recurse -File $base | Where-Object { $_.FullName -notmatch '__pycache__' } | ForEach-Object { $_.FullName.Substring\\($base.Length+1\\) } | Sort-Object)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "mcp__Claude_in_Chrome__navigate"
+    ]
+  }
+}

@@ -1,0 +1,44 @@
+# Render Blueprint — deploys a managed Postgres + the app as one web service.
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Usage: push this repo to GitHub, then in Render: New → Blueprint → pick the
+# repo. Set the secret env vars (OPENAI_API_KEY, ADMIN_PASSWORD) when prompted,
+# and after the first deploy set PUBLIC_BASE_URL to the service's URL.
+
+databases:
+  - name: chat-db
+    databaseName: chatdb
+    user: chat
+    plan: free
+
+services:
+  - type: web
+    name: ai-chat-widget
+    runtime: docker
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: chat-db
+          property: connectionString
+      - key: OPENAI_API_KEY
+        sync: false            # set manually in the dashboard (secret)
+      - key: OPENAI_MODEL
+        value: gpt-4o-mini
+      - key: ADMIN_USERNAME
+        value: admin
+      - key: ADMIN_PASSWORD
+        sync: false            # set manually in the dashboard (secret)
+      - key: WIDGET_ASSETS_DIR
+        value: /app/widget_assets
+      - key: ENVIRONMENT
+        value: production
+      - key: WEB_CONCURRENCY
+        value: "2"
+      # After the first deploy, set this to your service URL, e.g.
+      # https://ai-chat-widget.onrender.com  (used for the embed snippet).
+      - key: PUBLIC_BASE_URL
+        sync: false

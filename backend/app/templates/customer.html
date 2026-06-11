@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ customer.company_name }}</h1>
+
+<div class="card">
+  <h2>Credentials</h2>
+  <table>
+    <tr><th>Customer ID</th><td><code>{{ customer.id }}</code></td></tr>
+    <tr><th>API key</th><td><code>{{ customer.api_key }}</code></td></tr>
+    <tr><th>Vector store</th><td>
+      {% if customer.vector_store_id %}<code>{{ customer.vector_store_id }}</code>
+      {% else %}<span class="muted">created on first upload</span>{% endif %}
+    </td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Upload knowledge (.md)</h2>
+  <form method="post" action="/admin/customers/{{ customer.id }}/upload"
+        enctype="multipart/form-data" class="row">
+    <div>
+      <label for="files">Markdown files</label>
+      <input type="file" id="files" name="files" accept=".md,.markdown" multiple required />
+    </div>
+    <button type="submit">Upload &amp; index</button>
+  </form>
+  <table style="margin-top:14px;">
+    <thead><tr><th>File</th><th>Source name (shown in citations)</th><th>Uploaded</th><th></th></tr></thead>
+    <tbody>
+      {% for f in files %}
+      <tr>
+        <td>{{ f.filename }}</td>
+        <td>
+          <form method="post" action="/admin/files/{{ f.id }}/name"
+                style="display:flex;gap:8px;align-items:center;">
+            <input type="text" name="display_name" value="{{ f.display_name or '' }}"
+                   placeholder="{{ f.filename }}" style="flex:1;" />
+            <button type="submit">Save</button>
+          </form>
+        </td>
+        <td class="muted">{{ f.created_at.strftime("%Y-%m-%d %H:%M") }}</td>
+        <td>
+          <form method="post" action="/admin/files/{{ f.id }}/delete"
+                onsubmit="return confirm('Delete this source? It will be removed from the knowledge base.');">
+            <button type="submit" class="danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="4" class="muted">No files uploaded yet.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card">
+  <h2>Websites &amp; widgets</h2>
+  <form method="post" action="/admin/customers/{{ customer.id }}/websites" class="row">
+    <div>
+      <label for="domain">Domain (e.g. example.com)</label>
+      <input type="text" id="domain" name="domain" required placeholder="example.com" />
+    </div>
+    <button type="submit">Generate widget</button>
+  </form>
+  {% for w in customer.websites %}
+  <div style="border:1px solid var(--line);border-radius:10px;padding:16px;margin-top:14px;">
+    <table>
+      <tr><th>Domain</th><td>{{ w.domain }}</td></tr>
+      <tr><th>Widget ID</th><td><code>{{ w.widget_id }}</code></td></tr>
+      <tr><th>Embed snippet</th><td><code>&lt;script src="{{ base_url }}/widget.js"&gt;&lt;/script&gt;
+&lt;script&gt;window.ChatWidget.init({ widgetId: "{{ w.widget_id }}" });&lt;/script&gt;</code></td></tr>
+    </table>
+
+    <h2 style="margin-top:16px;">Widget appearance</h2>
+    <form method="post" action="/admin/websites/{{ w.id }}/settings">
+      <div class="row">
+        <div>
+          <label>Name / title</label>
+          <input type="text" name="widget_title" value="{{ w.widget_title or '' }}"
+                 placeholder="Chat with us" />
+        </div>
+        <div>
+          <label>Primary color</label>
+          <input type="text" name="widget_primary_color"
+                 value="{{ w.widget_primary_color or '' }}" placeholder="#6366f1" />
+        </div>
+        <div>
+          <label>Language</label>
+          <input type="text" name="widget_lang" value="{{ w.widget_lang or 'auto' }}"
+                 placeholder="auto | ar | en" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div>
+          <label>Logo URL</label>
+          <input type="text" name="widget_logo_url" value="{{ w.widget_logo_url or '' }}"
+                 placeholder="https://.../logo.png" />
+        </div>
+        <div>
+          <label>Greeting (first message)</label>
+          <input type="text" name="widget_greeting" value="{{ w.widget_greeting or '' }}"
+                 placeholder="Hi! 👋 How can I help you today?" />
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div>
+          <label>“No answer” message</label>
+          <input type="text" name="not_found_message"
+                 value="{{ w.not_found_message or '' }}"
+                 placeholder="No suitable answer was found…" />
+        </div>
+        <div>
+          <label>Expert button text</label>
+          <input type="text" name="expert_button_text"
+                 value="{{ w.expert_button_text or '' }}" placeholder="Ask the expert" />
+        </div>
+        <div>
+          <label>Expert button selector</label>
+          <input type="text" name="expert_selector"
+                 value="{{ w.expert_selector or '' }}" placeholder="#emptyState > button" />
+        </div>
+      </div>
+      <div style="margin-top:14px;">
+        <button type="submit">Save appearance</button>
+      </div>
+    </form>
+  </div>
+  {% else %}
+  <p class="muted" style="margin-top:14px;">No websites registered yet.</p>
+  {% endfor %}
+</div>
+
+<p><a class="btn" href="/admin/logs?widget_id=">View all chat logs</a></p>
+{% endblock %}

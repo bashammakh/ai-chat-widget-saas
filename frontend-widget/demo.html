@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chat Widget Demo</title>
+  <style>
+    body{font-family:system-ui,sans-serif;margin:0;padding:60px 24px;
+         background:#f1f5f9;color:#0f172a;}
+    .wrap{max-width:680px;margin:0 auto;}
+    h1{font-size:28px;}
+    code{background:#e2e8f0;padding:2px 6px;border-radius:6px;}
+    .note{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:20px;}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Demo page</h1>
+    <div class="note">
+      <p>This page embeds the chat widget. Replace <code>YOUR_WIDGET_ID</code>
+      with a widget id generated in the admin panel.</p>
+      <p>Because the API enforces domain validation, test from
+      <code>localhost</code> or from the registered domain.</p>
+    </div>
+
+    <!-- Example host-page element the widget targets on "no answer".
+         The default selector is "#emptyState > button". -->
+    <div id="emptyState" style="margin-top:24px;text-align:center;">
+      <button onclick="alert('Connecting you to a human expert…')"
+              style="padding:12px 20px;border:0;border-radius:10px;
+                     background:#16a34a;color:#fff;font-size:15px;cursor:pointer;">
+        Talk to a human expert
+      </button>
+    </div>
+  </div>
+
+  <!-- Embed snippet -->
+  <script src="/widget.js"></script>
+  <script>
+    window.ChatWidget.init({
+      widgetId: "tPNkvGKBccendxjp",
+      // apiBase defaults to this script's origin; override if hosting separately:
+      // apiBase: "https://chat.example.com",
+      // lang: "ar", // force Arabic / RTL
+    });
+  </script>
+</body>
+</html>

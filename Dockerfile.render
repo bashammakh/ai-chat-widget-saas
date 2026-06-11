@@ -1,0 +1,23 @@
+# --- Single-service image for Render (FastAPI + bundled widget assets) ---
+# Build context is the repository root so we can copy both the backend and the
+# widget assets into one image. Render terminates TLS and routes to this
+# service, so no Nginx is needed; the app serves /widget.js itself.
+FROM python:3.12-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    WIDGET_ASSETS_DIR=/app/widget_assets
+
+WORKDIR /app
+
+COPY backend/requirements.txt .
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+COPY backend/ /app/
+COPY frontend-widget/ /app/widget_assets/
+
+RUN chmod +x ./entrypoint.sh
+
+# Render injects $PORT; entrypoint runs migrations then starts uvicorn on it.
+CMD ["./entrypoint.sh"]
