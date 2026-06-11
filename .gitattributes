@@ -1,0 +1,9 @@
+# Keep LF line endings for files executed inside Linux containers, so a commit
+# from Windows doesn't break the image (e.g. entrypoint.sh with CRLF → bad
+# interpreter). Other text files are normalized to LF in the repo too.
+* text=auto eol=lf
+*.sh text eol=lf
+Dockerfile* text eol=lf
+*.py text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
