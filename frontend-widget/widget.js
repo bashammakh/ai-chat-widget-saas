@@ -163,6 +163,7 @@
           lang: pick(opts.lang, cfg.lang),
           notFoundMessage: pick(opts.notFoundMessage, cfg.not_found_message),
           expertButtonText: pick(opts.expertButtonText, cfg.expert_button_text),
+          expertUrl: pick(opts.expertUrl, cfg.expert_url),
           expertSelector: pick(opts.expertSelector, cfg.expert_selector),
         });
       });
@@ -226,7 +227,6 @@
     // Renders the configurable "no answer" message plus a button that triggers
     // the host page's expert element (default selector: "#emptyState > button").
     function addExpertButton() {
-      var selector = opts.expertSelector || "#emptyState > button";
       var wrap = document.createElement("div");
       wrap.className = "cw-msg cw-bot";
       wrap.style.background = "transparent";
@@ -236,12 +236,19 @@
       b.className = "cw-expert-btn";
       b.textContent = opts.expertButtonText || t.expertBtn;
       b.addEventListener("click", function () {
+        // 1) Preferred: open a configured link (WhatsApp / email / contact page).
+        if (opts.expertUrl) {
+          window.open(opts.expertUrl, "_blank", "noopener");
+          return;
+        }
+        // 2) Fallback: click an existing element on the host page.
+        var selector = opts.expertSelector || "#emptyState > button";
         var el = document.querySelector(selector);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
           el.click();
         } else {
-          console.warn("[ChatWidget] expert element not found for selector:", selector);
+          console.warn("[ChatWidget] expert: no expertUrl and selector not found:", selector);
         }
       });
       wrap.appendChild(b);

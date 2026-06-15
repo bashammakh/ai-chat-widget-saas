@@ -56,6 +56,7 @@ class WidgetConfigOut(BaseModel):
     lang: Optional[str] = None
     not_found_message: Optional[str] = None
     expert_button_text: Optional[str] = None
+    expert_url: Optional[str] = None
     expert_selector: Optional[str] = None
 
 

@@ -240,6 +240,7 @@ def admin_update_widget_settings(
     widget_lang: str = Form("auto"),
     not_found_message: str = Form(""),
     expert_button_text: str = Form(""),
+    expert_url: str = Form(""),
     expert_selector: str = Form(""),
     db: Session = Depends(get_db),
     _: str = Depends(require_admin),
@@ -255,6 +256,7 @@ def admin_update_widget_settings(
     website.widget_lang = _clean(widget_lang)
     website.not_found_message = _clean(not_found_message)
     website.expert_button_text = _clean(expert_button_text)
+    website.expert_url = _clean(expert_url)
     website.expert_selector = _clean(expert_selector)
     db.commit()
 

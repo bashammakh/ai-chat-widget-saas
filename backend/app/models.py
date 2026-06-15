@@ -70,6 +70,9 @@ class Website(Base):
     widget_lang: Mapped[str | None] = mapped_column(String(8), nullable=True)  # auto|ar|en
     not_found_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     expert_button_text: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    # When set, the expert button opens this URL (WhatsApp / email / contact
+    # page). Takes priority over expert_selector (clicking a host-page element).
+    expert_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     expert_selector: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     created_at: Mapped[dt.datetime] = mapped_column(

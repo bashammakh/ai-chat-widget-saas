@@ -114,8 +114,15 @@
           <input type="text" name="expert_button_text"
                  value="{{ w.expert_button_text or '' }}" placeholder="Ask the expert" />
         </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
         <div>
-          <label>Expert button selector</label>
+          <label>Expert button link (URL) — opens on click</label>
+          <input type="text" name="expert_url" value="{{ w.expert_url or '' }}"
+                 placeholder="https://wa.me/9715... · mailto:help@you.com · /contact" />
+        </div>
+        <div>
+          <label>Or click a page element (advanced)</label>
           <input type="text" name="expert_selector"
                  value="{{ w.expert_selector or '' }}" placeholder="#emptyState > button" />
         </div>

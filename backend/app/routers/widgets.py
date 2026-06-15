@@ -28,5 +28,6 @@ def widget_config(widget_id: str, db: Session = Depends(get_db)):
         lang=website.widget_lang,
         not_found_message=website.not_found_message,
         expert_button_text=website.expert_button_text,
+        expert_url=website.expert_url,
         expert_selector=website.expert_selector,
     )
