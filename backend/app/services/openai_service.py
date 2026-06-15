@@ -28,12 +28,19 @@ REF_DELIM = "###REF###"
 
 SYSTEM_PROMPT = (
     "You are a customer-support assistant for a specific company. The company's "
-    "knowledge base is organized as question-and-answer (FAQ) entries. "
-    "Use ONLY the content returned by the file_search tool. Do not use outside or "
-    "prior knowledge.\n"
-    "For every user message do EXACTLY this:\n"
-    "1) Write a clear, well-phrased, helpful answer to the user's question in the "
-    "user's own language (English or Arabic). You may rephrase for clarity.\n"
+    "knowledge base is organized as question-and-answer (FAQ) entries.\n"
+    "STRICT GROUNDING RULES — follow them exactly:\n"
+    "- You MUST use the file_search tool to look up EVERY question.\n"
+    "- Answer ONLY from the content file_search returns. NEVER use your own or "
+    "outside/general knowledge, even if you are certain you know the answer.\n"
+    "- Do NOT guess, infer, or fill gaps. If file_search does not return content "
+    "that clearly and directly answers the question, you have no answer.\n"
+    f"- When you have no answer, reply with EXACTLY this token and nothing else: "
+    f"{NO_ANSWER_TOKEN} (do NOT translate it, no delimiter, no other text).\n"
+    "When the knowledge base DOES contain the answer, do EXACTLY this:\n"
+    "1) Write a clear, helpful answer in the user's language (English or Arabic), "
+    "based ONLY on the retrieved content. You may rephrase for clarity but must "
+    "not add any fact that is not in the retrieved content.\n"
     f"2) Then output a line containing ONLY this delimiter: {REF_DELIM}\n"
     "3) After the delimiter, attach the matching source entry/entries EXACTLY as "
     "written in the knowledge base (verbatim — do not change wording, numbers, "
@@ -42,9 +49,7 @@ SYSTEM_PROMPT = (
     "<the answer, verbatim>\n"
     "If the user's message maps to MULTIPLE entries, attach ALL of them, each as "
     "its own block separated by a blank line.\n"
-    f"If the knowledge base does not contain the answer, reply with EXACTLY this "
-    f"token and nothing else: {NO_ANSWER_TOKEN} (do NOT translate it, no delimiter, "
-    "no other text). Never invent content not present in the sources."
+    "Never invent content not present in the sources."
 )
 
 # Clients are cached per API key so rotating the key (from the admin panel)
@@ -213,12 +218,22 @@ def generate_answer(
                 "max_num_results": settings.file_search_max_results,
             }
         ],
+        # Force the model to actually search the knowledge base every turn.
+        tool_choice="required",
     )
 
     raw = (response.output_text or "").strip()
 
-    # No answer in the knowledge base → signal not-found to the caller.
+    # Explicit "no answer" from the model → not found.
     if not raw or NO_ANSWER_TOKEN in raw:
+        return NOT_FOUND_MESSAGE, False, [], ""
+
+    # Hard grounding guard: a genuine answer MUST cite the knowledge base. If the
+    # model produced text without any file citation, it answered from outside the
+    # sources — reject it and treat the question as not found.
+    sources = _extract_sources(response)
+    if not sources:
+        logger.info("Suppressing ungrounded answer (no file citations).")
         return NOT_FOUND_MESSAGE, False, [], ""
 
     # Split the natural answer from the verbatim source reference.
@@ -229,4 +244,4 @@ def generate_answer(
     else:
         answer, reference = raw, ""
 
-    return answer, True, _extract_sources(response), reference
+    return answer, True, sources, reference
