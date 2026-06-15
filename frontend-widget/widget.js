@@ -241,8 +241,9 @@
           window.open(opts.expertUrl, "_blank", "noopener");
           return;
         }
-        // 2) Fallback: click an existing element on the host page.
-        var selector = opts.expertSelector || "#emptyState > button";
+        // 2) Fallback: click an existing element on the host page. Defaults to
+        // the Bootstrap "Ask the expert" modal trigger; override via admin.
+        var selector = opts.expertSelector || '[data-bs-target="#askExpertModal"]';
         var el = document.querySelector(selector);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "center" });
