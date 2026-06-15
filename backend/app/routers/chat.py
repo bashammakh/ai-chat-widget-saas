@@ -18,7 +18,7 @@ from app.limiter import limiter
 from app.models import ChatMessage, Customer, KnowledgeFile, Website
 from app.schemas import ChatRequest, ChatResponse
 from app.security import origin_matches_domain
-from app.services import openai_service
+from app.services import openai_service, settings_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["chat"])
@@ -84,6 +84,8 @@ def chat(
             vector_store_id=customer.vector_store_id,
             message=payload.message,
             history=history,
+            api_key=settings_service.effective_openai_key(db),
+            model=settings_service.effective_openai_model(db),
         )
     except Exception:  # noqa: BLE001
         logger.exception("OpenAI chat generation failed")

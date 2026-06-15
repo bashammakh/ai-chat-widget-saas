@@ -100,6 +100,23 @@ class KnowledgeFile(Base):
     customer: Mapped["Customer"] = relationship(back_populates="files")
 
 
+class AppSetting(Base):
+    """Simple key/value store for runtime-editable settings (e.g. OpenAI key).
+
+    Values here override the corresponding environment variables, so secrets can
+    be rotated from the admin panel without a redeploy.
+    """
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
+    updated_at: Mapped[dt.datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),
+        nullable=False,
+    )
+
+
 class ChatMessage(Base):
     """Persisted conversation history, one row per user/assistant exchange."""
 

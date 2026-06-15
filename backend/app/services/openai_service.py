@@ -47,14 +47,18 @@ SYSTEM_PROMPT = (
     "no other text). Never invent content not present in the sources."
 )
 
-_client: OpenAI | None = None
+# Clients are cached per API key so rotating the key (from the admin panel)
+# transparently switches to a fresh client without a restart.
+_clients: dict[str, OpenAI] = {}
 
 
-def get_client() -> OpenAI:
-    global _client
-    if _client is None:
-        _client = OpenAI(api_key=settings.openai_api_key)
-    return _client
+def get_client(api_key: str | None = None) -> OpenAI:
+    key = api_key or settings.openai_api_key
+    client = _clients.get(key)
+    if client is None:
+        client = OpenAI(api_key=key)
+        _clients[key] = client
+    return client
 
 
 def _vector_stores(client: OpenAI):
@@ -64,23 +68,25 @@ def _vector_stores(client: OpenAI):
     return client.beta.vector_stores  # older SDKs
 
 
-def create_vector_store(name: str) -> str:
+def create_vector_store(name: str, api_key: str | None = None) -> str:
     """Create a new vector store and return its id."""
-    client = get_client()
+    client = get_client(api_key)
     vs = _vector_stores(client).create(name=name)
     logger.info("Created vector store %s for %s", vs.id, name)
     return vs.id
 
 
 def upload_markdown_files(
-    vector_store_id: str, files: Iterable[tuple[str, bytes]]
+    vector_store_id: str,
+    files: Iterable[tuple[str, bytes]],
+    api_key: str | None = None,
 ) -> list[tuple[str, str]]:
     """Upload markdown files to OpenAI and attach them to the vector store.
 
     Returns a list of (filename, openai_file_id) tuples. Uses the batched
     upload-and-poll helper so the caller knows indexing has finished.
     """
-    client = get_client()
+    client = get_client(api_key)
     results: list[tuple[str, str]] = []
 
     for filename, content in files:
@@ -100,13 +106,15 @@ def upload_markdown_files(
     return results
 
 
-def delete_file(vector_store_id: str | None, openai_file_id: str) -> None:
+def delete_file(
+    vector_store_id: str | None, openai_file_id: str, api_key: str | None = None
+) -> None:
     """Detach a file from the vector store and delete it from OpenAI.
 
     Best-effort: storage cleanup failures are logged but never block the DB
     delete the caller performs afterwards.
     """
-    client = get_client()
+    client = get_client(api_key)
     if vector_store_id:
         try:
             _vector_stores(client).files.delete(
@@ -123,9 +131,9 @@ def delete_file(vector_store_id: str | None, openai_file_id: str) -> None:
         logger.warning("Failed to delete OpenAI file %s: %s", openai_file_id, exc)
 
 
-def delete_vector_store(vector_store_id: str) -> None:
+def delete_vector_store(vector_store_id: str, api_key: str | None = None) -> None:
     """Best-effort deletion of a vector store (used on customer teardown)."""
-    client = get_client()
+    client = get_client(api_key)
     try:
         _vector_stores(client).delete(vector_store_id=vector_store_id)
     except Exception as exc:  # pragma: no cover - best effort cleanup
@@ -174,6 +182,8 @@ def generate_answer(
     vector_store_id: str,
     message: str,
     history: list[dict[str, str]] | None = None,
+    api_key: str | None = None,
+    model: str | None = None,
 ) -> tuple[str, bool, list[dict[str, str]], str]:
     """Run the Responses API with file_search scoped to one vector store.
 
@@ -186,7 +196,7 @@ def generate_answer(
       - ``sources``   – [{"file_id", "filename"}] the caller maps to display names.
       - ``reference`` – the verbatim source Q&A text to attach below the answer.
     """
-    client = get_client()
+    client = get_client(api_key)
 
     input_messages: list[dict[str, str]] = [{"role": "system", "content": SYSTEM_PROMPT}]
     if history:
@@ -194,7 +204,7 @@ def generate_answer(
     input_messages.append({"role": "user", "content": message})
 
     response = client.responses.create(
-        model=settings.openai_model,
+        model=model or settings.openai_model,
         input=input_messages,
         tools=[
             {

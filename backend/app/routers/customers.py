@@ -20,7 +20,7 @@ from app.schemas import (
     WebsiteOut,
 )
 from app.security import require_admin
-from app.services import openai_service
+from app.services import openai_service, settings_service
 
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
@@ -64,7 +64,9 @@ def delete_customer(
     if customer is None:
         raise HTTPException(status_code=404, detail="Customer not found")
     if customer.vector_store_id:
-        openai_service.delete_vector_store(customer.vector_store_id)
+        openai_service.delete_vector_store(
+            customer.vector_store_id, api_key=settings_service.effective_openai_key(db)
+        )
     db.delete(customer)
     db.commit()
     return None
@@ -96,16 +98,17 @@ async def upload_knowledge(
             raise HTTPException(status_code=400, detail=f"File is empty: {name}")
         payloads.append((name, content))
 
+    api_key = settings_service.effective_openai_key(db)
     # Reuse the existing vector store, or create one on first upload.
     if not customer.vector_store_id:
         customer.vector_store_id = openai_service.create_vector_store(
-            name=f"kb-{customer.company_name}-{customer.id[:8]}"
+            name=f"kb-{customer.company_name}-{customer.id[:8]}", api_key=api_key
         )
         db.add(customer)
         db.commit()
 
     uploaded = openai_service.upload_markdown_files(
-        customer.vector_store_id, payloads
+        customer.vector_store_id, payloads, api_key=api_key
     )
 
     for filename, openai_file_id in uploaded:
@@ -137,7 +140,9 @@ def delete_knowledge_file(
         raise HTTPException(status_code=404, detail="File not found")
     customer = db.get(Customer, customer_id)
     vs_id = customer.vector_store_id if customer else None
-    openai_service.delete_file(vs_id, kf.openai_file_id)
+    openai_service.delete_file(
+        vs_id, kf.openai_file_id, api_key=settings_service.effective_openai_key(db)
+    )
     db.delete(kf)
     db.commit()
     return None

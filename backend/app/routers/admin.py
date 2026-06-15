@@ -18,7 +18,7 @@ from app.routers.customers import (
     MAX_FILE_BYTES,
 )
 from app.security import require_admin
-from app.services import openai_service
+from app.services import openai_service, settings_service
 
 router = APIRouter(prefix="/admin", tags=["admin"], include_in_schema=False)
 
@@ -48,6 +48,44 @@ def dashboard(
         {"request": request, "customers": customers},
         headers=_NO_STORE,
     )
+
+
+@router.get("/settings", response_class=HTMLResponse)
+def settings_page(
+    request: Request, db: Session = Depends(get_db), _: str = Depends(require_admin)
+):
+    key = settings_service.effective_openai_key(db)
+    db_key = settings_service.get_setting(db, settings_service.KEY_OPENAI_API_KEY)
+    return templates.TemplateResponse(
+        "settings.html",
+        {
+            "request": request,
+            "masked_key": settings_service.mask_secret(key),
+            "key_source": "database" if db_key else "environment",
+            "model": settings_service.effective_openai_model(db),
+        },
+        headers=_NO_STORE,
+    )
+
+
+@router.post("/settings")
+def update_settings(
+    openai_api_key: str = Form(""),
+    openai_model: str = Form(""),
+    db: Session = Depends(get_db),
+    _: str = Depends(require_admin),
+):
+    # Only overwrite the key when a new value is actually entered (so saving the
+    # form without retyping the secret keeps the current key).
+    new_key = openai_api_key.strip()
+    if new_key:
+        settings_service.set_setting(
+            db, settings_service.KEY_OPENAI_API_KEY, new_key
+        )
+    model = openai_model.strip()
+    if model:
+        settings_service.set_setting(db, settings_service.KEY_OPENAI_MODEL, model)
+    return RedirectResponse(url="/admin/settings", status_code=303)
 
 
 @router.post("/customers")
@@ -109,13 +147,14 @@ async def admin_upload(
             payloads.append((name, content))
 
     if payloads:
+        api_key = settings_service.effective_openai_key(db)
         if not customer.vector_store_id:
             customer.vector_store_id = openai_service.create_vector_store(
-                name=f"kb-{customer.company_name}-{customer.id[:8]}"
+                name=f"kb-{customer.company_name}-{customer.id[:8]}", api_key=api_key
             )
             db.commit()
         uploaded = openai_service.upload_markdown_files(
-            customer.vector_store_id, payloads
+            customer.vector_store_id, payloads, api_key=api_key
         )
         for filename, openai_file_id in uploaded:
             db.add(
@@ -141,7 +180,9 @@ def admin_delete_file(
         raise HTTPException(status_code=404, detail="File not found")
     customer = db.get(Customer, kf.customer_id)
     vs_id = customer.vector_store_id if customer else None
-    openai_service.delete_file(vs_id, kf.openai_file_id)
+    openai_service.delete_file(
+        vs_id, kf.openai_file_id, api_key=settings_service.effective_openai_key(db)
+    )
     customer_id = kf.customer_id
     db.delete(kf)
     db.commit()
