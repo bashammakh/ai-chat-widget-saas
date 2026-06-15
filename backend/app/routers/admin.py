@@ -31,6 +31,11 @@ def _base_url(request: Request) -> str:
     return settings.public_base_url.rstrip("/") or str(request.base_url).rstrip("/")
 
 
+# Admin pages must never be cached, otherwise edits/deletes appear not to "take"
+# because the browser shows a stale copy of the list.
+_NO_STORE = {"Cache-Control": "no-store, no-cache, must-revalidate"}
+
+
 @router.get("", response_class=HTMLResponse)
 def dashboard(
     request: Request, db: Session = Depends(get_db), _: str = Depends(require_admin)
@@ -39,7 +44,9 @@ def dashboard(
         select(Customer).order_by(Customer.created_at.desc())
     ).all()
     return templates.TemplateResponse(
-        "dashboard.html", {"request": request, "customers": customers}
+        "dashboard.html",
+        {"request": request, "customers": customers},
+        headers=_NO_STORE,
     )
 
 
@@ -77,6 +84,7 @@ def customer_detail(
             "files": files,
             "base_url": _base_url(request),
         },
+        headers=_NO_STORE,
     )
 
 
@@ -231,5 +239,7 @@ def chat_logs(
         )
     logs = db.scalars(stmt).all()
     return templates.TemplateResponse(
-        "logs.html", {"request": request, "logs": logs, "widget_id": widget_id or ""}
+        "logs.html",
+        {"request": request, "logs": logs, "widget_id": widget_id or ""},
+        headers=_NO_STORE,
     )

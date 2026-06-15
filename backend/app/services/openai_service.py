@@ -22,25 +22,29 @@ NOT_FOUND_MESSAGE = "I could not find that information in the knowledge base."
 # structured ``found=false`` flag so the widget can render its own UI.
 NO_ANSWER_TOKEN = "<<NO_ANSWER>>"
 
+# Delimiter separating the model's natural answer from the verbatim source
+# Q&A reference. The backend splits on it to insert the source line in between.
+REF_DELIM = "###REF###"
+
 SYSTEM_PROMPT = (
     "You are a customer-support assistant for a specific company. The company's "
     "knowledge base is organized as question-and-answer (FAQ) entries. "
     "Use ONLY the content returned by the file_search tool. Do not use outside or "
     "prior knowledge.\n"
-    "For every user message:\n"
-    "1) Analyze the message and find the knowledge-base question(s) that match it.\n"
-    "2) Return the matched question(s) and their answer(s) EXACTLY as written in "
-    "the source — do NOT rephrase, translate, summarize, shorten, fix, or change "
-    "any wording, numbers, links, or formatting. Copy them verbatim.\n"
-    "3) If the user's message covers several topics that map to MULTIPLE entries, "
-    "return ALL of the matching entries — do not merge or pick only one.\n"
-    "Format every matched entry as its own block, in this exact shape:\n"
-    "❓ <the question, verbatim from the source>\n"
-    "<the answer, verbatim from the source>\n"
-    "Separate multiple blocks with a blank line.\n"
-    f"If none of the knowledge-base questions match, reply with EXACTLY this token "
-    f"and nothing else: {NO_ANSWER_TOKEN} (do NOT translate it or add other text).\n"
-    "Never invent content and never add anything not present in the sources."
+    "For every user message do EXACTLY this:\n"
+    "1) Write a clear, well-phrased, helpful answer to the user's question in the "
+    "user's own language (English or Arabic). You may rephrase for clarity.\n"
+    f"2) Then output a line containing ONLY this delimiter: {REF_DELIM}\n"
+    "3) After the delimiter, attach the matching source entry/entries EXACTLY as "
+    "written in the knowledge base (verbatim — do not change wording, numbers, "
+    "links, or formatting), each formatted as:\n"
+    "❓ <the question, verbatim>\n"
+    "<the answer, verbatim>\n"
+    "If the user's message maps to MULTIPLE entries, attach ALL of them, each as "
+    "its own block separated by a blank line.\n"
+    f"If the knowledge base does not contain the answer, reply with EXACTLY this "
+    f"token and nothing else: {NO_ANSWER_TOKEN} (do NOT translate it, no delimiter, "
+    "no other text). Never invent content not present in the sources."
 )
 
 _client: OpenAI | None = None
@@ -170,15 +174,17 @@ def generate_answer(
     vector_store_id: str,
     message: str,
     history: list[dict[str, str]] | None = None,
-) -> tuple[str, bool, list[dict[str, str]]]:
+) -> tuple[str, bool, list[dict[str, str]], str]:
     """Run the Responses API with file_search scoped to one vector store.
 
     ``history`` is a list of {"role": "user"|"assistant", "content": str} dicts
     representing earlier turns in the same session (conversation memory).
 
-    Returns ``(answer, found, sources)``. When ``found`` is False the answer is
-    not in the knowledge base and ``answer`` is NOT_FOUND_MESSAGE. ``sources`` is
-    a list of {"file_id", "filename"} dicts the caller maps to display names.
+    Returns ``(answer, found, sources, reference)``:
+      - ``answer``    – the natural, well-phrased answer (or NOT_FOUND_MESSAGE).
+      - ``found``     – False when the answer is not in the knowledge base.
+      - ``sources``   – [{"file_id", "filename"}] the caller maps to display names.
+      - ``reference`` – the verbatim source Q&A text to attach below the answer.
     """
     client = get_client()
 
@@ -199,10 +205,18 @@ def generate_answer(
         ],
     )
 
-    answer = (response.output_text or "").strip()
+    raw = (response.output_text or "").strip()
 
     # No answer in the knowledge base → signal not-found to the caller.
-    if not answer or NO_ANSWER_TOKEN in answer:
-        return NOT_FOUND_MESSAGE, False, []
+    if not raw or NO_ANSWER_TOKEN in raw:
+        return NOT_FOUND_MESSAGE, False, [], ""
 
-    return answer, True, _extract_sources(response)
+    # Split the natural answer from the verbatim source reference.
+    if REF_DELIM in raw:
+        answer, reference = raw.split(REF_DELIM, 1)
+        answer = answer.strip()
+        reference = reference.strip()
+    else:
+        answer, reference = raw, ""
+
+    return answer, True, _extract_sources(response), reference

@@ -80,7 +80,7 @@ def chat(
     history = _load_history(db, payload.widget_id, payload.session_id)
 
     try:
-        answer, found, sources = openai_service.generate_answer(
+        answer, found, sources, reference = openai_service.generate_answer(
             vector_store_id=customer.vector_store_id,
             message=payload.message,
             history=history,
@@ -89,9 +89,8 @@ def chat(
         logger.exception("OpenAI chat generation failed")
         raise HTTPException(status_code=502, detail="Upstream AI service error")
 
-    # Map cited OpenAI file ids to admin-defined display names (fall back to the
-    # filename), then append a localized source line to the answer.
-    if found and sources:
+    # Assemble the final reply: natural answer → source line → verbatim Q&A.
+    if found:
         file_ids = [s["file_id"] for s in sources if s.get("file_id")]
         name_by_id: dict[str, str] = {}
         if file_ids:
@@ -108,7 +107,10 @@ def chat(
             label = name_by_id.get(s.get("file_id", ""), s.get("filename") or "")
             if label and label not in names:
                 names.append(label)
+
         answer = openai_service.append_sources(answer, names)
+        if reference:
+            answer += "\n\n" + reference
 
     db.add(
         ChatMessage(
