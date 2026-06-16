@@ -61,7 +61,9 @@ def get_client(api_key: str | None = None) -> OpenAI:
     key = api_key or settings.openai_api_key
     client = _clients.get(key)
     if client is None:
-        client = OpenAI(api_key=key)
+        # Longer timeout + extra retries to ride out transient network blips
+        # (e.g. APIConnectionError) between the host and api.openai.com.
+        client = OpenAI(api_key=key, timeout=60.0, max_retries=5)
         _clients[key] = client
     return client
 
