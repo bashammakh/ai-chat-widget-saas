@@ -5,6 +5,8 @@ provisioning operations, not customer-facing).
 """
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -22,6 +24,7 @@ from app.schemas import (
 from app.security import require_admin
 from app.services import openai_service, settings_service
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/customers", tags=["customers"])
 
 MAX_FILE_BYTES = 5 * 1024 * 1024  # 5 MB per file
@@ -99,17 +102,21 @@ async def upload_knowledge(
         payloads.append((name, content))
 
     api_key = settings_service.effective_openai_key(db)
-    # Reuse the existing vector store, or create one on first upload.
-    if not customer.vector_store_id:
-        customer.vector_store_id = openai_service.create_vector_store(
-            name=f"kb-{customer.company_name}-{customer.id[:8]}", api_key=api_key
-        )
-        db.add(customer)
-        db.commit()
+    try:
+        # Reuse the existing vector store, or create one on first upload.
+        if not customer.vector_store_id:
+            customer.vector_store_id = openai_service.create_vector_store(
+                name=f"kb-{customer.company_name}-{customer.id[:8]}", api_key=api_key
+            )
+            db.add(customer)
+            db.commit()
 
-    uploaded = openai_service.upload_markdown_files(
-        customer.vector_store_id, payloads, api_key=api_key
-    )
+        uploaded = openai_service.upload_markdown_files(
+            customer.vector_store_id, payloads, api_key=api_key
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("Knowledge upload to OpenAI failed")
+        raise HTTPException(status_code=502, detail=f"OpenAI upload failed: {exc}")
 
     for filename, openai_file_id in uploaded:
         db.add(

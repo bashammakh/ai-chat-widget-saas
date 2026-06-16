@@ -1,6 +1,7 @@
 """Server-rendered admin dashboard (Jinja2 templates + HTTP Basic auth)."""
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile
@@ -19,6 +20,8 @@ from app.routers.customers import (
 )
 from app.security import require_admin
 from app.services import openai_service, settings_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"], include_in_schema=False)
 
@@ -148,14 +151,21 @@ async def admin_upload(
 
     if payloads:
         api_key = settings_service.effective_openai_key(db)
-        if not customer.vector_store_id:
-            customer.vector_store_id = openai_service.create_vector_store(
-                name=f"kb-{customer.company_name}-{customer.id[:8]}", api_key=api_key
+        try:
+            if not customer.vector_store_id:
+                customer.vector_store_id = openai_service.create_vector_store(
+                    name=f"kb-{customer.company_name}-{customer.id[:8]}",
+                    api_key=api_key,
+                )
+                db.commit()
+            uploaded = openai_service.upload_markdown_files(
+                customer.vector_store_id, payloads, api_key=api_key
             )
-            db.commit()
-        uploaded = openai_service.upload_markdown_files(
-            customer.vector_store_id, payloads, api_key=api_key
-        )
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Admin knowledge upload to OpenAI failed")
+            raise HTTPException(
+                status_code=502, detail=f"OpenAI upload failed: {exc}"
+            )
         for filename, openai_file_id in uploaded:
             db.add(
                 KnowledgeFile(
