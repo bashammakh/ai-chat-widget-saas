@@ -22,31 +22,24 @@ NOT_FOUND_MESSAGE = "I could not find that information in the knowledge base."
 # structured ``found=false`` flag so the widget can render its own UI.
 NO_ANSWER_TOKEN = "<<NO_ANSWER>>"
 
-# Delimiter separating the model's natural answer from the verbatim source
-# Q&A reference. The backend splits on it to insert the source line in between.
-REF_DELIM = "###REF###"
-
 SYSTEM_PROMPT = (
     "You are a customer-support assistant for a specific company. Its knowledge "
     "base may contain FAQ entries, help articles, or general documents.\n"
-    "STRICT GROUNDING RULES — follow them exactly:\n"
-    "- You MUST use the file_search tool to look up EVERY question.\n"
-    "- Answer ONLY from the content file_search returns. NEVER use your own or "
-    "outside/general knowledge, even if you are certain you know the answer.\n"
-    "- Do NOT guess, infer, or fill gaps. If the retrieved content does not "
-    "clearly answer the question, you have no answer.\n"
-    f"- When you have no answer, reply with EXACTLY this token and nothing else: "
-    f"{NO_ANSWER_TOKEN} (do NOT translate it, no delimiter, no other text).\n"
-    "When the retrieved content DOES answer the question, do EXACTLY this:\n"
-    "1) Write a clear, helpful answer in the user's language (English or Arabic), "
-    "based ONLY on the retrieved content. You may rephrase for clarity but must "
-    "not add any fact that is not in the retrieved content.\n"
-    f"2) Then output a line containing ONLY this delimiter: {REF_DELIM}\n"
-    "3) After the delimiter, quote the exact supporting passage(s) from the source "
-    "VERBATIM (do not change wording, numbers, links, or formatting) — for an FAQ "
-    "that is the matching question and its answer; for a document it is the "
-    "relevant line(s) or paragraph. If several passages apply, include ALL of "
-    "them, each as its own block separated by a blank line.\n"
+    "How to answer:\n"
+    "- First, read the user's message carefully and understand exactly what they "
+    "are asking (take the conversation history into account for follow-ups).\n"
+    "- You MUST use the file_search tool to look it up. Answer ONLY from the "
+    "content file_search returns. NEVER use your own or outside/general "
+    "knowledge, and do NOT guess or fill gaps.\n"
+    "- Write a clear, accurate, helpful answer in the user's language (English or "
+    "Arabic), based ONLY on the retrieved content. You may rephrase for clarity, "
+    "but do not add any fact that is not in the retrieved content.\n"
+    "- Give ONLY the answer itself. Do NOT quote the original text, and do NOT "
+    "add a 'source' or 'reference' section yourself — the source name is added "
+    "automatically by the system.\n"
+    f"- If the retrieved content does not clearly answer the question, reply with "
+    f"EXACTLY this token and nothing else: {NO_ANSWER_TOKEN} (do NOT translate "
+    "it, no other text).\n"
     "Never invent content not present in the sources."
 )
 
@@ -199,7 +192,7 @@ def generate_answer(
       - ``answer``    – the natural, well-phrased answer (or NOT_FOUND_MESSAGE).
       - ``found``     – False when the answer is not in the knowledge base.
       - ``sources``   – [{"file_id", "filename"}] the caller maps to display names.
-      - ``reference`` – the verbatim source Q&A text to attach below the answer.
+      - ``reference`` – always "" (kept for signature compatibility).
     """
     client = get_client(api_key)
 
@@ -236,12 +229,5 @@ def generate_answer(
         logger.info("Suppressing ungrounded answer (no file citations).")
         return NOT_FOUND_MESSAGE, False, [], ""
 
-    # Split the natural answer from the verbatim source reference.
-    if REF_DELIM in raw:
-        answer, reference = raw.split(REF_DELIM, 1)
-        answer = answer.strip()
-        reference = reference.strip()
-    else:
-        answer, reference = raw, ""
-
-    return answer, True, sources, reference
+    # Answer only — the source name is appended by the caller. No verbatim block.
+    return raw, True, sources, ""
