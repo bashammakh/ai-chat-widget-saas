@@ -95,10 +95,10 @@
 .cw-typing span:nth-child(2){animation-delay:.15s;}
 .cw-typing span:nth-child(3){animation-delay:.3s;}
 @keyframes cw-bounce{0%,60%,100%{transform:translateY(0);opacity:.5;}30%{transform:translateY(-6px);opacity:1;}}
-.cw-footer{display:flex;gap:8px;padding:12px;border-top:1px solid #e5e7eb;background:#fff;}
-.cw-input{flex:1;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit;}
+.cw-footer{display:flex;gap:8px;padding:12px;border-top:1px solid #e5e7eb;background:#fff;align-items:flex-end;}
+.cw-input{flex:1;border:1px solid #d1d5db;border-radius:10px;padding:10px 12px;font-size:14px;outline:none;font-family:inherit;line-height:1.4;resize:none;max-height:120px;overflow-y:auto;}
 .cw-input:focus{border-color:${primary};}
-.cw-send{background:${primary};color:#fff;border:0;border-radius:10px;padding:0 16px;cursor:pointer;font-weight:600;font-size:14px;}
+.cw-send{background:${primary};color:#fff;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;font-weight:600;font-size:14px;white-space:nowrap;}
 .cw-send:disabled{opacity:.5;cursor:not-allowed;}
 .cw-expert-btn{margin-top:4px;background:${primary};color:#fff;border:0;border-radius:10px;padding:9px 14px;cursor:pointer;font-weight:600;font-size:13px;font-family:inherit;align-self:flex-start;}
 .cw-root.cw-rtl .cw-expert-btn{align-self:flex-end;}
@@ -190,7 +190,7 @@
           '<button class="cw-close" aria-label="Close">×</button></div>' +
         '<div class="cw-body"></div>' +
         '<div class="cw-footer">' +
-          '<input class="cw-input" type="text" placeholder="' + escapeHtml(t.placeholder) + '" />' +
+          '<textarea class="cw-input" rows="1" placeholder="' + escapeHtml(t.placeholder) + '"></textarea>' +
           '<button class="cw-send">' + escapeHtml(t.send) + '</button>' +
         '</div>' +
       '</div>' +
@@ -273,6 +273,7 @@
       sendBtn.disabled = true;
       addMsg(text, "user");
       input.value = "";
+      autoGrow();
       var typing = showTyping();
 
       fetch(apiBase + "/api/chat", {
@@ -310,11 +311,19 @@
         });
     }
 
+    // Grow the textarea with its content, up to the CSS max-height.
+    function autoGrow() {
+      input.style.height = "auto";
+      input.style.height = Math.min(input.scrollHeight, 120) + "px";
+    }
+
     btn.addEventListener("click", function () { toggle(); });
     closeBtn.addEventListener("click", function () { toggle(false); });
     sendBtn.addEventListener("click", send);
+    input.addEventListener("input", autoGrow);
     input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") { e.preventDefault(); send(); }
+      // Enter sends; Shift+Enter inserts a newline.
+      if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
     });
 
     self.open = function () { toggle(true); };
